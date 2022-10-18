@@ -1,11 +1,11 @@
 import argparse
 import os
+import time
 
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
 from Inergy.InergySource import InergySource
-from utils import create_element
 from utils.neo4j import get_buildings
 
 if __name__ == '__main__':
@@ -26,9 +26,22 @@ if __name__ == '__main__':
                                   auth=(os.getenv('NEO4J_USERNAME'), os.getenv('NEO4J_PASSWORD')))
 
     if args.type == 'element' or args.type == 'all':
+        limit = 100
+        skip = 0
+        ttl = int(os.getenv('TTL'))
+        t0 = time.time()
 
-        with driver.session() as session:
-            print(get_buildings(session).data())
-        InergySource.insert_elements(token=token['access_token'], data={})
+        while time.time() - t0 < ttl:  # TODO : Add TimeOut
+            with driver.session() as session:
+                # buildings = get_buildings(session, namespace=args.namespace, limit=limit, skip=limit * skip).data()
+                buildings = get_buildings(session, namespace='https://eplanet.eu#BUILDING-', limit=limit,
+                                          skip=limit * skip).data()
+                for i in buildings:
+                    building = i['n']
+                    # data = create_element()
+                    # InergySource.insert_elements(token=token['access_token'], data={})
 
-        data = create_element()
+            if len(buildings) == limit:
+                skip += 1
+            else:
+                break
