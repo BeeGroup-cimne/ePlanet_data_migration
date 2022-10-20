@@ -7,8 +7,8 @@ from neo4j import GraphDatabase
 
 from Inergy.Entities import Element, Location, Supply, SupplyEnum
 from Inergy.InergySource import InergySource
-from utils import create_supply, create_element
-from utils.neo4j import get_buildings, get_sensors
+from utils import create_supply, create_element, get_sensor_id
+from utils.neo4j import get_buildings, get_sensors, get_sensors_measurements
 
 
 def insert_elements():
@@ -59,6 +59,25 @@ def insert_supplies():
             break
 
 
+def insert_hourly_data():
+    limit = 100
+    skip = 0
+    ttl = int(os.getenv('TTL'))
+    t0 = time.time()
+    while time.time() - t0 < ttl:
+        with driver.session() as session:
+            sensor_measure = get_sensors_measurements(session, namespace=args.namespace, limit=limit,
+                                                      skip=limit * skip).data()
+            for i in sensor_measure:
+                _from, sensor_id, sensor_type = get_sensor_id(i['n'].get('uri'))
+                measure_id = i['m'].get('uri').split('#')[-1]
+
+        if len(sensor_measure) == limit:
+            skip += 1
+        else:
+            break
+
+
 if __name__ == '__main__':
     load_dotenv()
 
@@ -66,7 +85,7 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='Insert data to Inergy')
     ap.add_argument("--id_project", "-id_project", type=int, help="Project Id", required=True)
     ap.add_argument("--type", "-t", type=str, help="The user importing the data",
-                    choices=['element', 'supplies', 'all'],
+                    choices=['element', 'supplies', 'hourly_data', 'all'],
                     required=True)
 
     ap.add_argument("--namespace", "-n", required=True)
@@ -84,3 +103,6 @@ if __name__ == '__main__':
 
     if args.type == 'supplies' or args.type == 'all':
         insert_supplies()
+
+    if args.type == 'hourly_data' or args.type == 'all':
+        insert_hourly_data()

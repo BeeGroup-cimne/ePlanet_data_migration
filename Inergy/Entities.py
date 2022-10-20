@@ -18,8 +18,8 @@ class Element(object):
     use: str
     typology: int
     name: str
-    begin_date: str
-    end_date: str
+    begin_date: str  # 2020-01-16
+    end_date: str  # 2020-01-16
     location: Optional[dict] = None
 
 
@@ -33,8 +33,8 @@ class Supply(object):
     element_code: str
     use: str
     id_zone: int
-    begin_date: str
-    end_date: str
+    begin_date: str  # 2020-01-16
+    end_date: str  # 2020-01-16
     description: Optional[str] = None
 
 
@@ -43,3 +43,18 @@ class SupplyEnum(Enum):
     GAS = 1
     FUEL = 2
     WATER = 3
+
+
+@dataclass
+class HourlyData(object):
+    instance: int
+    id_project: int
+    cups: str
+    sensor: str
+    hourly_data: dict
+
+
+@dataclass
+class Measure(object):
+    value: float
+    timestamp: str  # 2020-01-16T10:00:00Z

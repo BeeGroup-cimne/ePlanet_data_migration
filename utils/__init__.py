@@ -3,34 +3,29 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from Inergy import SupplyEnum, Supply, Location, Element
-from utils.constants import SENSOR_TYPE_TAXONOMY
+from constants import SENSOR_TYPE_TAXONOMY
 
 
 def create_supply(args, sensor):
-    split_uri = sensor['n']['uri'].split('-')
-
     code = None
     cups = None
 
-    if len(split_uri) == 8:  # Czech (WATER,GAS,ELECTRICITY)
-        sensor_type = SENSOR_TYPE_TAXONOMY.get(split_uri[5])
+    _from, sensor_id, sensor_type = get_sensor_id(sensor['n']['uri'].split('-'))
 
-        if not sensor_type:
-            return None
+    if not sensor_type:
+        return None
 
-        element_code = '-'.join(split_uri[2:5])
-        aux_val = f"{element_code}-{sensor_type}"
+    if _from == 'CZ':
+        aux_val = f"{sensor_type}-{sensor_type}"
         if sensor_type == 'WATER':
             code = aux_val
         else:
             cups = aux_val
-
-    else:  # Greece (ELECTRICITY)
-        sensor_type = SENSOR_TYPE_TAXONOMY.get(split_uri[3])
-        element_code = cups = split_uri[2]
+    else:
+        cups = sensor_id
 
     return Supply(instance=1, id_project=args.id_project, code=code, cups=cups,
-                  id_source=SupplyEnum[sensor_type].value, element_code=element_code,
+                  id_source=SupplyEnum[sensor_type].value, element_code=sensor_id,
                   use='Equipment',
                   id_zone=1,
                   begin_date=str(sensor['n']['bigg__timeSeriesStart'].date()),
@@ -60,3 +55,18 @@ def create_element(args, i):
 
         return el
     return None
+
+
+def get_sensor_id(sensor_uri):
+    split_uri = sensor_uri.split('-')
+    if len(split_uri) == 8:
+        sensor_id = '-'.join(split_uri[2:5])
+        sensor_type = SENSOR_TYPE_TAXONOMY.get(split_uri[5])
+        _from = 'CZ'
+
+    else:
+        sensor_id = split_uri[2]
+        sensor_type = SENSOR_TYPE_TAXONOMY.get(split_uri[3])
+        _from = 'GR'
+
+    return _from, sensor_id, sensor_type

@@ -25,3 +25,12 @@ def get_sensors(session, namespace, skip, limit):
                 LIMIT {limit}
                 """
     return session.run(query)
+
+
+def get_sensors_measurements(session, namespace, skip, limit):
+    query = f"""MATCH (n:bigg__Sensor)-[r:bigg__hasMeasurement]-(m:bigg__Measurement)
+                WHERE n.uri contains '{namespace}' RETURN n,m
+                SKIP {skip}
+                LIMIT {limit}
+                """
+    return session.run(query)
