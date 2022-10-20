@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional
 
 
@@ -20,3 +21,25 @@ class Element(object):
     begin_date: str
     end_date: str
     location: Optional[dict] = None
+
+
+@dataclass
+class Supply(object):
+    instance: int
+    id_project: int
+    code: str
+    cups: str
+    id_source: int
+    element_code: str
+    use: str
+    id_zone: int
+    begin_date: str
+    end_date: str
+    description: Optional[str] = None
+
+
+class SupplyEnum(Enum):
+    ELECTRICITY = 0
+    GAS = 1
+    FUEL = 2
+    WATER = 3
