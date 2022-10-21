@@ -2,12 +2,14 @@ import argparse
 import os
 import time
 
+import happybase
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
-from Inergy.Entities import Element, Location, Supply, SupplyEnum
+from Inergy.Entities import Element, Location, Supply, SupplyEnum, HourlyData, SensorEnum, RequestHourlyData
 from Inergy.InergySource import InergySource
-from utils import create_supply, create_element, get_sensor_id
+from constants import INVERTED_SENSOR_TYPE_TAXONOMY
+from utils import create_supply, create_element, get_sensor_id, decode_hbase_values
 from utils.neo4j import get_buildings, get_sensors, get_sensors_measurements
 
 
@@ -71,6 +73,18 @@ def insert_hourly_data():
             for i in sensor_measure:
                 _from, sensor_id, sensor_type = get_sensor_id(i['n'].get('uri'))
                 measure_id = i['m'].get('uri').split('#')[-1]
+                hbase_conn = happybase.Connection(host=os.getenv('HBASE_HOST'), port=int(os.getenv('HBASE_PORT')),
+                                                  table_prefix=os.getenv('HBASE_TABLE_PREFIX'),
+                                                  table_prefix_separator=os.getenv('HBASE_TABLE_PREFIX_SEPARATOR'))
+                table = hbase_conn.table(
+                    os.getenv('HBASE_TABLE').format('online', INVERTED_SENSOR_TYPE_TAXONOMY.get(sensor_type)))
+                for bucket in range(20):  # Bucket
+                    for key, value in table.scan(row_start='~'.join([str(float(bucket)), measure_id])):
+                        value = decode_hbase_values(value=value)
+                        # pass invoices to hourly data
+                        hourly_data = HourlyData(value=value['v:value'], timestamp='')
+                        RequestHourlyData(instance=1, id_project=args.id_project, cups=sensor_id,
+                                          sensor=str(SensorEnum[sensor_type].value), hourly_data=hourly_data.__dict__)
 
         if len(sensor_measure) == limit:
             skip += 1

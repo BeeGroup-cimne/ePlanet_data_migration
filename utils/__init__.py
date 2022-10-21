@@ -70,3 +70,11 @@ def get_sensor_id(sensor_uri):
         _from = 'GR'
 
     return _from, sensor_id, sensor_type
+
+
+def decode_hbase_values(value):
+    item = dict()
+
+    for k, v in value.items():
+        item.update({k.decode(): v.decode()})
+    return item

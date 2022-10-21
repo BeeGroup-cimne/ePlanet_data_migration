@@ -46,7 +46,7 @@ class SupplyEnum(Enum):
 
 
 @dataclass
-class HourlyData(object):
+class RequestHourlyData(object):
     instance: int
     id_project: int
     cups: str
@@ -54,7 +54,13 @@ class HourlyData(object):
     hourly_data: dict
 
 
+class SensorEnum(Enum):
+    ELECTRICITY = 'Consumption_1'
+    GAS = 'Consumption_1'
+    WATER = 'WaterConsumption'
+
+
 @dataclass
-class Measure(object):
+class HourlyData(object):
     value: float
     timestamp: str  # 2020-01-16T10:00:00Z
