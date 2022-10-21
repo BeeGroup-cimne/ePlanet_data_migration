@@ -1,6 +1,7 @@
 import argparse
 import os
 import time
+from datetime import datetime
 
 import happybase
 from dotenv import load_dotenv
@@ -78,13 +79,20 @@ def insert_hourly_data():
                                                   table_prefix_separator=os.getenv('HBASE_TABLE_PREFIX_SEPARATOR'))
                 table = hbase_conn.table(
                     os.getenv('HBASE_TABLE').format('online', INVERTED_SENSOR_TYPE_TAXONOMY.get(sensor_type)))
+
                 for bucket in range(20):  # Bucket
                     for key, value in table.scan(row_start='~'.join([str(float(bucket)), measure_id])):
+                        _, _, timestamp = key.decode().split('~')
+                        timestamp = datetime.fromtimestamp(int(timestamp))
+
                         value = decode_hbase_values(value=value)
-                        # pass invoices to hourly data
-                        hourly_data = HourlyData(value=value['v:value'], timestamp='')
-                        RequestHourlyData(instance=1, id_project=args.id_project, cups=sensor_id,
-                                          sensor=str(SensorEnum[sensor_type].value), hourly_data=hourly_data.__dict__)
+
+                        hourly_data = HourlyData(value=value['v:value'], timestamp=timestamp.isoformat())
+
+                        req_hour_data = RequestHourlyData(instance=1, id_project=args.id_project, cups=sensor_id,
+                                                          sensor=str(SensorEnum[sensor_type].value),
+                                                          hourly_data=hourly_data.__dict__)
+                        InergySource.update_hourly_data(token=token, data=req_hour_data)
 
         if len(sensor_measure) == limit:
             skip += 1

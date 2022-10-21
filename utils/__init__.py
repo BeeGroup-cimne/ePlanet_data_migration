@@ -10,13 +10,13 @@ def create_supply(args, sensor):
     code = None
     cups = None
 
-    _from, sensor_id, sensor_type = get_sensor_id(sensor['n']['uri'].split('-'))
+    _from, sensor_id, sensor_type = get_sensor_id(sensor['n']['uri'])
 
     if not sensor_type:
         return None
 
     if _from == 'CZ':
-        aux_val = f"{sensor_type}-{sensor_type}"
+        aux_val = f"{sensor_id}-{sensor_type}"
         if sensor_type == 'WATER':
             code = aux_val
         else:
@@ -47,7 +47,7 @@ def create_element(args, i):
            ['bigg__buildingIDFromOrganization', 'bigg__buildingName']):
         el = Element(id_project=args.id_project,
                      instance=1,
-                     code=building.get('bigg__buildingIDFromOrganization'),
+                     code=str(building.get('bigg__buildingIDFromOrganization')),
                      use='Equipment', typology=9, name=building.get('bigg__buildingName'),
                      begin_date=str(date.today()),
                      end_date=str(date.today() + relativedelta(years=10)),

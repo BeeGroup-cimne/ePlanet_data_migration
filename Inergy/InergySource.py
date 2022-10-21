@@ -60,3 +60,13 @@ class InergySource:
             return res.json()
         else:
             res.raise_for_status()
+
+    @staticmethod
+    def update_hourly_data(token, data):
+        headers = {'Authorization': f'Bearer {token}'}
+
+        res = requests.post(url=f"{os.getenv('INERGY_BASE_URL')}/common/update_hourly_data", headers=headers, json=data)
+        if res.ok:
+            return res.json()
+        else:
+            res.raise_for_status()
