@@ -51,7 +51,7 @@ class RequestHourlyData(object):
     id_project: int
     cups: str
     sensor: str
-    hourly_data: dict
+    hourly_data: list
 
 
 class SensorEnum(Enum):

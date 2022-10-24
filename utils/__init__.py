@@ -2,7 +2,7 @@ from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
-from Inergy import SupplyEnum, Supply, Location, Element
+from Inergy.Entities import Element, Location, SupplyEnum, Supply
 from constants import SENSOR_TYPE_TAXONOMY
 
 

@@ -1,6 +1,11 @@
 # ePlanet Data Migrations
 
+## Run script
+
+    python3 -m Inergy --id_project <id_project> --type ['element', 'supplies', 'hourly_data', 'all'] --namespace <namespace>
+
 ## Environment Variables
+
     INERGY_USERNAME=
     INERGY_PASSWORD=
     INERGY_BASE_URL=
