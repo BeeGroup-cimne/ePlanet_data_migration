@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import time
 from datetime import datetime
@@ -15,6 +16,7 @@ from utils.neo4j import get_buildings, get_sensors, get_sensors_measurements
 
 
 def insert_elements():
+    logger.info("Starting elements integration")
     limit = 100
     skip = 0
     ttl = int(os.getenv('TTL'))
@@ -23,6 +25,7 @@ def insert_elements():
         with driver.session() as session:
             buildings = get_buildings(session, namespace=args.namespace, limit=limit,
                                       skip=limit * skip).data()
+            logger.info(f"A subset-{skip} of {len(buildings)} elements has been started the integration.")
         to_insert = []
         for building in buildings:
             el = create_element(args, building)
@@ -31,7 +34,7 @@ def insert_elements():
 
         InergySource.insert_elements(token=token['access_token'],
                                      data=to_insert)
-
+        logger.info(f"The elements has been integrated successfully.")
         if len(buildings) == limit:
             skip += 1
         else:
@@ -47,6 +50,7 @@ def insert_supplies():
         with driver.session() as session:
             sensors = get_sensors(session, namespace=args.namespace, limit=limit,
                                   skip=limit * skip).data()
+            logger.info(f"A subset-{skip} of {len(sensors)} supplies has been started the integration.")
 
         to_insert = []
         for sensor in sensors:
@@ -55,6 +59,7 @@ def insert_supplies():
                 to_insert.append(supply.__dict__)
 
         InergySource.insert_supplies(token=token['access_token'], data=to_insert)
+        logger.info(f"The supplies has been integrated successfully.")
 
         if len(sensors) == limit:
             skip += 1
@@ -101,7 +106,15 @@ def insert_hourly_data():
 
 
 if __name__ == '__main__':
+    # Load env. variables
     load_dotenv()
+
+    # Set Logger
+    logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
+                        datefmt='%Y-%m-%d:%H:%M:%S',
+                        level=logging.DEBUG, filename='inergy.logs')
+
+    logger = logging.getLogger('Inergy')
 
     # Set Arguments in CLI
     ap = argparse.ArgumentParser(description='Insert data to Inergy')
@@ -115,16 +128,20 @@ if __name__ == '__main__':
 
     # Get credentials
     token = InergySource.authenticate()
+    logger.info("The authentication has been succeeded.")
 
     # Neo4J
     driver = GraphDatabase.driver(os.getenv('NEO4J_URI'),
                                   auth=(os.getenv('NEO4J_USERNAME'), os.getenv('NEO4J_PASSWORD')))
+    logger.info("The connection with database has been succeeded.")
 
     if args.type == 'element' or args.type == 'all':
         insert_elements()
+        logger.info("The process of integrate elements has been completed.")
 
     if args.type == 'supplies' or args.type == 'all':
         insert_supplies()
+        logger.info("The process of integrate supplies has been completed.")
 
     if args.type == 'hourly_data' or args.type == 'all':
         insert_hourly_data()
