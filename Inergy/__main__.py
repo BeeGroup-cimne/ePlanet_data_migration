@@ -105,7 +105,7 @@ def insert_hourly_data():
                             hourly_data = HourlyData(value=float(value['v:value']), timestamp=timestamp.isoformat())
                             req_hour_data.hourly_data.append(hourly_data.__dict__)
 
-                InergySource.update_hourly_data(token=token, data=[req_hour_data.__dict__])
+                InergySource.update_hourly_data(token=token['access_token'], data=[req_hour_data.__dict__])
 
         if len(sensor_measure) == limit:
             skip += 1
