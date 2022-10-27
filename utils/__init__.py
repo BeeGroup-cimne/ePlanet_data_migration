@@ -7,22 +7,13 @@ from constants import SENSOR_TYPE_TAXONOMY
 
 
 def create_supply(args, sensor):
-    code = None
-    cups = None
-
     _from, sensor_id, sensor_type = get_sensor_id(sensor['s']['uri'])
 
     if not sensor_type:
         return None
 
-    if _from == 'CZ':
-        aux_val = f"{sensor_id}-{sensor_type}"
-        if sensor_type == 'WATER':
-            code = aux_val
-        else:
-            cups = aux_val
-    else:
-        cups = sensor_id
+    cups = f"{sensor_id}-{sensor_type}" if _from == 'CZ' else sensor_id
+    code = f'{cups}-CODE'
 
     return Supply(instance=1, id_project=args.id_project, code=code, cups=cups,
                   id_source=SupplyEnum[sensor_type].value, element_code=sensor_id,

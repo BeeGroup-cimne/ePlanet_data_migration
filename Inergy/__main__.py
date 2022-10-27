@@ -56,8 +56,8 @@ def insert_supplies():
             supply = create_supply(args, sensor)
             if supply:
                 to_insert.append(supply.__dict__)
-
-        InergySource.insert_supplies(token=token['access_token'], data=to_insert)
+        res = InergySource.insert_supplies(token=token['access_token'], data=to_insert)
+        logger.info(res)
         logger.info(f"The supplies-{skip} has been integrated successfully.")
 
         if len(sensors) == limit:
