@@ -7,41 +7,48 @@ from constants import SENSOR_TYPE_TAXONOMY
 
 
 def create_supply(args, sensor):
-    code = None
-    cups = None
-
-    _from, sensor_id, sensor_type = get_sensor_id(sensor['n']['uri'])
+    _from, sensor_id, sensor_type = get_sensor_id(sensor['s']['uri'])
 
     if not sensor_type:
         return None
 
-    if _from == 'CZ':
-        aux_val = f"{sensor_id}-{sensor_type}"
-        if sensor_type == 'WATER':
-            code = aux_val
-        else:
-            cups = aux_val
-    else:
-        cups = sensor_id
+    cups = f"{sensor_id}-{sensor_type}" if _from == 'CZ' else sensor_id
+    code = f'{cups}-CODE'
 
     return Supply(instance=1, id_project=args.id_project, code=code, cups=cups,
                   id_source=SupplyEnum[sensor_type].value, element_code=sensor_id,
                   use='Equipment',
                   id_zone=1,
-                  begin_date=str(sensor['n']['bigg__timeSeriesStart'].date()),
-                  end_date=str(sensor['n']['bigg__timeSeriesEnd'].date()))
+                  begin_date=str(sensor['s']['bigg__timeSeriesStart'].date()),
+                  end_date=str(sensor['s']['bigg__timeSeriesEnd'].date()))
+
+
+def create_location(location, city):
+    address = None
+    address_street = location.get('bigg__addressStreetName')
+    address_number = location.get('bigg__addressStreetNumber')
+
+    if address_street:
+        address = address_street
+        if address_street:
+            address += f' {address_number}'
+
+    if location.get('bigg__addressLatitude') and location.get('bigg__addressLatitude'):
+        latitude = float(location.get('bigg__addressLatitude')[:-1])
+        longitude = float(location.get('bigg__addressLongitude')[:-1])
+    else:
+        latitude = float(city.get('wgs__lat'))
+        longitude = float(city.get('wgs__long'))
+
+    return Location(address=address, latitude=latitude, longitude=longitude)
 
 
 def create_element(args, i):
     building = i['n']
     location = i['l']
+    city = i['c']
 
-    loc = Location(
-        address=f"{location.get('bigg__addressStreetName')} {location.get('bigg__addressStreetNumber')}",
-        latitude=float(location.get('bigg__addressLatitude')[:-1]) if location.get(
-            'bigg__addressLatitude') else None,
-        longitude=float(location.get('bigg__addressLongitude')[:-1]) if location.get(
-            'bigg__addressLongitude') else None)
+    loc = create_location(location, city)
 
     if all(item in list(building.keys()) for item in
            ['bigg__buildingIDFromOrganization', 'bigg__buildingName']):
