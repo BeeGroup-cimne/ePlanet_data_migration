@@ -4,14 +4,17 @@ import os
 import time
 
 import happybase
+import pandas as pd
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
-from Inergy.Entities import SensorEnum, RequestHourlyData
+from Inergy.Entities import SensorEnum, RequestHourlyData, HourlyData
 from Inergy.InergySource import InergySource
 from constants import INVERTED_SENSOR_TYPE_TAXONOMY
 from utils import create_supply, create_element, get_sensor_id, decode_hbase_values
 from utils.neo4j import get_buildings, get_sensors, get_sensors_measurements
+
+TZ_INFO = 'Europe/Madrid'
 
 
 def insert_elements():
@@ -67,7 +70,23 @@ def insert_supplies():
 
 
 def clean_ts_data(data):
-    pass
+    df = pd.DataFrame(data)
+    # Cast Data
+    df['start'] = df['start'].astype(int)
+    df['end'] = df['end'].astype(int)
+    df['value'] = df['value'].astype(float)
+
+    df['start'] = pd.to_datetime(df['start'], unit='s').dt.tz_localize('UTC').dt.tz_convert(TZ_INFO)
+    df['start'] = df['start'].dt.normalize()
+
+    df['end'] = pd.to_datetime(df['end'], unit='s').dt.tz_localize('UTC').dt.tz_convert(TZ_INFO)
+    df['end'] = df['end'].dt.normalize()
+
+    df.set_index('start', inplace=True)
+    df.sort_index(inplace=True)
+    df.dropna(inplace=True)
+
+    return [HourlyData(value=row['value'], timestamp=index.isoformat()).__dict__ for index, row in df.iterrows()]
 
 
 def insert_hourly_data():
@@ -77,25 +96,20 @@ def insert_hourly_data():
     t0 = time.time()
     while time.time() - t0 < ttl:
         with driver.session() as session:
-            sensor_measure = get_sensors_measurements(session, namespace=args.namespace, limit=limit,
+            sensor_measure = get_sensors_measurements(session, id_project=args.id_project, namespace=args.namespace,
+                                                      limit=limit,
                                                       skip=limit * skip).data()
         for i in sensor_measure:
-            _from, sensor_id, sensor_type = get_sensor_id(i['n'].get('uri'))
-            if _from == 'CZ':
-                cups = f"{sensor_id}-{sensor_type}"
-            else:
-                cups = sensor_id
+            _from, sensor_id, sensor_type = get_sensor_id(i['s'].get('uri'))
+            cups = f"{sensor_id}-{sensor_type}" if _from == 'CZ' else sensor_id
+
             measure_id = i['m'].get('uri').split('#')[-1]
 
             req_hour_data = RequestHourlyData(instance=1, id_project=args.id_project, cups=cups,
                                               sensor=str(SensorEnum[sensor_type].value),
                                               hourly_data=[])
 
-            get_data_hbase(measure_id, sensor_type)
-
-            # if value['v:value'] != np.NaN and value['v:value'] != 'nan':
-            #     hourly_data = HourlyData(value=float(value['v:value']), timestamp=timestamp.isoformat())
-            # req_hour_data.hourly_data.append(hourly_data.__dict__)
+            req_hour_data.hourly_data = get_data_hbase(measure_id, sensor_type)
 
             InergySource.update_hourly_data(token=token['access_token'], data=[req_hour_data.__dict__])
 
