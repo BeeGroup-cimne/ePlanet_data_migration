@@ -85,7 +85,7 @@ def clean_ts_data(data):
     df.set_index('start', inplace=True)
     df.sort_index(inplace=True)
     df.dropna(inplace=True)
-
+    logger.info(f"Data had been cleaned successfully.")
     return [HourlyData(value=row['value'], timestamp=index.isoformat()).__dict__ for index, row in df.iterrows()]
 
 
@@ -99,19 +99,27 @@ def insert_hourly_data():
             sensor_measure = get_sensors_measurements(session, id_project=args.id_project, namespace=args.namespace,
                                                       limit=limit,
                                                       skip=limit * skip).data()
+            logger.info(f"Gather Sensors and Measurements [{skip}].")
         for i in sensor_measure:
             _from, sensor_id, sensor_type = get_sensor_id(i['s'].get('uri'))
             cups = f"{sensor_id}-{sensor_type}" if _from == 'CZ' else sensor_id
-
             measure_id = i['m'].get('uri').split('#')[-1]
+
+            logger.info(f"Sensor: {sensor_id} || Type: {sensor_type} || Measure: {measure_id}")
 
             req_hour_data = RequestHourlyData(instance=1, id_project=args.id_project, cups=cups,
                                               sensor=str(SensorEnum[sensor_type].value),
                                               hourly_data=[])
 
+            logger.info(f"RequestHourlyData {cups} created.")
+
             req_hour_data.hourly_data = get_data_hbase(measure_id, sensor_type)
 
-            InergySource.update_hourly_data(token=token['access_token'], data=[req_hour_data.__dict__])
+            logger.info(
+                f"Energy Consumption from {cups} has been gathered successfully ({len(req_hour_data.hourly_data)}).")
+
+            res = InergySource.update_hourly_data(token=token['access_token'], data=[req_hour_data.__dict__])
+            logger.info(res)
 
         if len(sensor_measure) == limit:
             skip += 1
@@ -133,7 +141,7 @@ def get_data_hbase(measure_id, sensor_type):
             # timestamp = datetime.fromtimestamp(int(timestamp))
             value = decode_hbase_values(value=value)
             ts_data.append({'start': timestamp, 'end': value['info:end'], 'value': value['v:value']})
-
+    logger.info(f"We found {len(ts_data)} records from {measure_id}")
     return clean_ts_data(ts_data)
 
 
