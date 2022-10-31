@@ -69,7 +69,7 @@ def insert_supplies():
             break
 
 
-def clean_ts_data(data):
+def clean_ts_data(_from, data):
     df = pd.DataFrame(data)
     # Cast Data
     df['start'] = df['start'].astype(int)
@@ -85,6 +85,10 @@ def clean_ts_data(data):
     df.set_index('start', inplace=True)
     df.sort_index(inplace=True)
     df.dropna(inplace=True)
+    df = df[df['value'] > 0]
+
+    if _from == 'CZ':
+        pass
     logger.info(f"Data had been cleaned successfully.")
     return [HourlyData(value=row['value'], timestamp=index.isoformat()).__dict__ for index, row in df.iterrows()]
 
@@ -113,7 +117,7 @@ def insert_hourly_data():
 
             logger.info(f"RequestHourlyData {cups} created.")
 
-            req_hour_data.hourly_data = get_data_hbase(measure_id, sensor_type)
+            req_hour_data.hourly_data = get_data_hbase(_from, measure_id, sensor_type)
 
             logger.info(
                 f"Energy Consumption from {cups} has been gathered successfully ({len(req_hour_data.hourly_data)}).")
@@ -127,7 +131,7 @@ def insert_hourly_data():
             break
 
 
-def get_data_hbase(measure_id, sensor_type):
+def get_data_hbase(_from, measure_id, sensor_type):
     hbase_conn = happybase.Connection(host=os.getenv('HBASE_HOST'), port=int(os.getenv('HBASE_PORT')),
                                       table_prefix=os.getenv('HBASE_TABLE_PREFIX'),
                                       table_prefix_separator=os.getenv('HBASE_TABLE_PREFIX_SEPARATOR'))
@@ -142,7 +146,7 @@ def get_data_hbase(measure_id, sensor_type):
             value = decode_hbase_values(value=value)
             ts_data.append({'start': timestamp, 'end': value['info:end'], 'value': value['v:value']})
     logger.info(f"We found {len(ts_data)} records from {measure_id}")
-    return clean_ts_data(ts_data)
+    return clean_ts_data(_from, ts_data)
 
 
 if __name__ == '__main__':
