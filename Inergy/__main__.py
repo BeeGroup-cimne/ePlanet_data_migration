@@ -34,8 +34,13 @@ def insert_elements():
             if el:
                 to_insert.append(el.__dict__)
 
-        InergySource.insert_elements(token=token['access_token'],
-                                     data=to_insert)
+        if args.method == 'insert':
+            res = InergySource.insert_elements(token=token['access_token'],
+                                               data=to_insert)
+        elif args.method == 'update':
+            res = InergySource.update_elements(token=token['access_token'],
+                                               data=to_insert)
+
         logger.info(f"The elements-{skip} has been integrated successfully.")
         if len(buildings) == limit:
             skip += 1
@@ -59,7 +64,12 @@ def insert_supplies():
             supply = create_supply(args, sensor)
             if supply:
                 to_insert.append(supply.__dict__)
-        res = InergySource.insert_supplies(token=token['access_token'], data=to_insert)
+
+        if args.method == 'insert':
+            res = InergySource.insert_supplies(token=token['access_token'], data=to_insert)
+        elif args.method == 'update':
+            res = InergySource.update_supplies(token=token['access_token'], data=to_insert)
+
         logger.info(res)
         logger.info(f"The supplies-{skip} has been integrated successfully.")
 
@@ -174,9 +184,13 @@ if __name__ == '__main__':
     # Set Arguments in CLI
     ap = argparse.ArgumentParser(description='Insert data to Inergy')
     ap.add_argument("--id_project", "-id_project", type=int, help="Project Id", required=True)
-    ap.add_argument("--type", "-t", type=str, help="The user importing the data",
+    ap.add_argument("--type", "-t", type=str, help="The data that you want to insert",
                     choices=['element', 'supplies', 'hourly_data', 'all'],
                     required=True)
+
+    ap.add_argument("--method", "-m", type=str, help="",
+                    choices=['update', 'insert'],
+                    default='insert')
 
     ap.add_argument("--namespace", "-n", required=True)
     args = ap.parse_args()
