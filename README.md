@@ -20,4 +20,5 @@
     HBASE_PORT=
     HBASE_TABLE_PREFIX=
     HBASE_TABLE_PREFIX_SEPARATOR=
-    HBASE_TABLE=harmonized_{0}_{1}_000_SUM_PT1M_eplanet
+    HBASE_TABLE_GR=harmonized_{0}_{1}_100_SUM__eplanet
+    HBASE_TABLE_CZ=harmonized_{0}_{1}_000_SUM_PT1M_eplanet

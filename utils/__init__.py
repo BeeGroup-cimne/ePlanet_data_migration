@@ -12,8 +12,9 @@ def create_supply(args, sensor):
     if not sensor_type:
         return None
 
+    code = f"{_from}-{sensor_type}-{sensor_id}"
     cups = f"{sensor_id}-{sensor_type}" if _from == 'CZ' else sensor_id
-    code = f'{cups}-CODE'
+    cups = cups[:20]
 
     return Supply(instance=1, id_project=args.id_project, code=code, cups=cups,
                   id_source=SupplyEnum[sensor_type].value, element_code=sensor_id,
@@ -33,7 +34,7 @@ def create_location(location, city):
         if address_street:
             address += f' {address_number}'
 
-    if location.get('bigg__addressLatitude') and location.get('bigg__addressLatitude'):
+    if location.get('bigg__addressLatitude') and location.get('bigg__addressLongitude'):
         latitude = float(location.get('bigg__addressLatitude')[:-1])
         longitude = float(location.get('bigg__addressLongitude')[:-1])
     else:
