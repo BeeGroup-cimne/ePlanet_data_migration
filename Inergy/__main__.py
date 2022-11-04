@@ -65,12 +65,12 @@ def insert_supplies():
             if supply:
                 to_insert.append(supply.__dict__)
         print(to_insert)
-        # if args.method == 'insert':
-        #     res = InergySource.insert_supplies(token=token['access_token'], data=to_insert)
-        # elif args.method == 'update':
-        #     res = InergySource.update_supplies(token=token['access_token'], data=to_insert)
+        if args.method == 'insert':
+            res = InergySource.insert_supplies(token=token['access_token'], data=to_insert)
+        elif args.method == 'update':
+            res = InergySource.update_supplies(token=token['access_token'], data=to_insert)
 
-        # logger.info(res)
+        logger.info(res)
         logger.info(f"The supplies-{skip} has been integrated successfully.")
 
         if len(sensors) == limit:
@@ -144,8 +144,8 @@ def insert_hourly_data():
             logger.info(
                 f"Energy Consumption from {cups} has been gathered successfully ({len(req_hour_data.hourly_data)}).")
 
-            # res = InergySource.update_hourly_data(token=token['access_token'], data=[req_hour_data.__dict__])
-            # logger.info(res)
+            res = InergySource.update_hourly_data(token=token['access_token'], data=[req_hour_data.__dict__])
+            logger.info(res)
             print(req_hour_data.__dict__)
 
         if len(sensor_measure) == limit:
@@ -199,8 +199,8 @@ if __name__ == '__main__':
     args = ap.parse_args()
 
     # Get credentials
-    # token = InergySource.authenticate()
-    # logger.info("The authentication has been succeeded.")
+    token = InergySource.authenticate()
+    logger.info("The authentication has been succeeded.")
 
     # Neo4J
     driver = GraphDatabase.driver(os.getenv('NEO4J_URI'),
