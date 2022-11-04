@@ -64,13 +64,13 @@ def insert_supplies():
             supply = create_supply(args, sensor)
             if supply:
                 to_insert.append(supply.__dict__)
+        print(to_insert)
+        # if args.method == 'insert':
+        #     res = InergySource.insert_supplies(token=token['access_token'], data=to_insert)
+        # elif args.method == 'update':
+        #     res = InergySource.update_supplies(token=token['access_token'], data=to_insert)
 
-        if args.method == 'insert':
-            res = InergySource.insert_supplies(token=token['access_token'], data=to_insert)
-        elif args.method == 'update':
-            res = InergySource.update_supplies(token=token['access_token'], data=to_insert)
-
-        logger.info(res)
+        # logger.info(res)
         logger.info(f"The supplies-{skip} has been integrated successfully.")
 
         if len(sensors) == limit:
@@ -79,8 +79,7 @@ def insert_supplies():
             break
 
 
-def clean_ts_data(measure_id, _from, data):
-    print(measure_id)
+def clean_ts_data(_from, data):
     df = pd.DataFrame(data)
     # Cast Data
     df['start'] = df['start'].astype(int)
@@ -112,7 +111,8 @@ def clean_ts_data(measure_id, _from, data):
         df['value'] = df['value'].round(3)
 
     logger.info(f"Data had been cleaned successfully.")
-    return [HourlyData(value=row['value'], timestamp=index.isoformat()).__dict__ for index, row in df.iterrows()]
+    return [HourlyData(value=row['value'], timestamp=index.replace(hour=12).isoformat()).__dict__ for index, row in
+            df.iterrows()]
 
 
 def insert_hourly_data():
@@ -129,21 +129,24 @@ def insert_hourly_data():
         for i in sensor_measure:
             _from, sensor_id, sensor_type = get_sensor_id(i['s'].get('uri'))
             cups = f"{sensor_id}-{sensor_type}" if _from == 'CZ' else sensor_id
+            cups = cups[:20]
             measure_id = i['m'].get('uri').split('#')[-1]
 
             logger.info(f"Sensor: {sensor_id} || Type: {sensor_type} || Measure: {measure_id}")
+            print(f"Sensor: {sensor_id} || Type: {sensor_type} || Measure: {measure_id}")
 
             req_hour_data = RequestHourlyData(instance=1, id_project=args.id_project, cups=cups,
                                               sensor=str(SensorEnum[sensor_type].value),
                                               hourly_data=[])
 
             logger.info(f"RequestHourlyData {cups} created.")
-
             req_hour_data.hourly_data = get_data_hbase(_from, measure_id, sensor_type)
             logger.info(
                 f"Energy Consumption from {cups} has been gathered successfully ({len(req_hour_data.hourly_data)}).")
-            res = InergySource.update_hourly_data(token=token['access_token'], data=[req_hour_data.__dict__])
-            logger.info(res)
+
+            # res = InergySource.update_hourly_data(token=token['access_token'], data=[req_hour_data.__dict__])
+            # logger.info(res)
+            print(req_hour_data.__dict__)
 
         if len(sensor_measure) == limit:
             skip += 1
@@ -166,7 +169,7 @@ def get_data_hbase(_from, measure_id, sensor_type):
             value = decode_hbase_values(value=value)
             ts_data.append({'start': timestamp, 'end': value['info:end'], 'value': value['v:value']})
     logger.info(f"We found {len(ts_data)} records from {measure_id}")
-    return clean_ts_data(measure_id, _from, ts_data)
+    return clean_ts_data(_from, ts_data)
 
 
 if __name__ == '__main__':
@@ -196,8 +199,8 @@ if __name__ == '__main__':
     args = ap.parse_args()
 
     # Get credentials
-    token = InergySource.authenticate()
-    logger.info("The authentication has been succeeded.")
+    # token = InergySource.authenticate()
+    # logger.info("The authentication has been succeeded.")
 
     # Neo4J
     driver = GraphDatabase.driver(os.getenv('NEO4J_URI'),
