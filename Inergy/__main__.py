@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import time
+from distutils.util import strtobool
 
 import happybase
 import pandas as pd
@@ -17,60 +18,63 @@ from utils.neo4j import get_buildings, get_sensors, get_sensors_measurements
 TZ_INFO = 'Europe/Madrid'
 
 
-def insert_elements():
+def insert_elements(id_project):
     logger.info("Starting elements integration")
     limit = 100
     skip = 0
     ttl = int(os.getenv('TTL'))
     t0 = time.time()
+
     while time.time() - t0 < ttl:
         with driver.session() as session:
-            buildings = get_buildings(session, namespace=args.namespace, limit=limit, id_project=args.id_project,
+            buildings = get_buildings(session, namespace=args.namespace, limit=limit, id_project=id_project,
                                       skip=limit * skip).data()
             logger.info(f"A subset-{skip} of {len(buildings)} elements has been started the integration.")
         to_insert = []
         for building in buildings:
-            el = create_element(args, building)
+            el = create_element(id_project, building)
             if el:
                 to_insert.append(el.__dict__)
-
-        if args.method == 'insert':
-            res = InergySource.insert_elements(token=token['access_token'],
-                                               data=to_insert)
-        elif args.method == 'update':
-            res = InergySource.update_elements(token=token['access_token'],
-                                               data=to_insert)
-
+        if not DEBUG:
+            if args.method == 'insert':
+                res = InergySource.insert_elements(token=token['access_token'],
+                                                   data=to_insert)
+            elif args.method == 'update':
+                res = InergySource.update_elements(token=token['access_token'],
+                                                   data=to_insert)
+        print(to_insert)
         logger.info(f"The elements-{skip} has been integrated successfully.")
+
         if len(buildings) == limit:
             skip += 1
         else:
             break
 
 
-def insert_supplies():
+def insert_supplies(id_project):
     limit = 100
     skip = 0
     ttl = int(os.getenv('TTL'))
     t0 = time.time()
     while time.time() - t0 < ttl:
         with driver.session() as session:
-            sensors = get_sensors(session, id_project=args.id_project, namespace=args.namespace, limit=limit,
+            sensors = get_sensors(session, id_project=id_project, namespace=args.namespace, limit=limit,
                                   skip=limit * skip).data()
             logger.info(f"A subset-{skip} of {len(sensors)} supplies has been started the integration.")
 
         to_insert = []
         for sensor in sensors:
-            supply = create_supply(args, sensor)
+            supply = create_supply(id_project, sensor)
             if supply:
                 to_insert.append(supply.__dict__)
-        print(to_insert)
-        if args.method == 'insert':
-            res = InergySource.insert_supplies(token=token['access_token'], data=to_insert)
-        elif args.method == 'update':
-            res = InergySource.update_supplies(token=token['access_token'], data=to_insert)
 
-        logger.info(res)
+        if not DEBUG:
+            if args.method == 'insert':
+                res = InergySource.insert_supplies(token=token['access_token'], data=to_insert)
+            elif args.method == 'update':
+                res = InergySource.update_supplies(token=token['access_token'], data=to_insert)
+
+            logger.info(res)
         logger.info(f"The supplies-{skip} has been integrated successfully.")
 
         if len(sensors) == limit:
@@ -80,49 +84,51 @@ def insert_supplies():
 
 
 def clean_ts_data(_from, data):
-    df = pd.DataFrame(data)
-    # Cast Data
-    df['start'] = df['start'].astype(int)
-    df['end'] = df['end'].astype(int)
-    df['value'] = df['value'].astype(float)
+    try:
+        df = pd.DataFrame(data)
+        # Cast Data
+        df['start'] = df['start'].astype(int)
+        df['end'] = df['end'].astype(int)
+        df['value'] = df['value'].astype(float)
 
-    df['start'] = pd.to_datetime(df['start'], unit='s').dt.tz_localize('UTC').dt.tz_convert(TZ_INFO)
-    df['start'] = df['start'].dt.normalize()
+        df['start'] = pd.to_datetime(df['start'], unit='s').dt.tz_localize('UTC').dt.tz_convert(TZ_INFO)
+        df['start'] = df['start'].dt.normalize()
 
-    df['end'] = pd.to_datetime(df['end'], unit='s').dt.tz_localize('UTC').dt.tz_convert(TZ_INFO)
-    df['end'] = df['end'].dt.normalize()
+        df['end'] = pd.to_datetime(df['end'], unit='s').dt.tz_localize('UTC').dt.tz_convert(TZ_INFO)
+        df['end'] = df['end'].dt.normalize()
 
-    df.set_index('end', inplace=True)
-    df.sort_index(inplace=True)
-    df.dropna(inplace=True)
-    df = df[df['value'] > 0]
+        df.set_index('end', inplace=True)
+        df.sort_index(inplace=True)
+        df.dropna(inplace=True)
+        df = df[df['value'] > 0]
 
-    if _from == 'GR':
-        df['shifted'] = df['value'].shift(-1)
-        df['isReal'] = df['shifted'] - df['value']
+        if not df.empty and _from == 'GR':
+            df['shifted'] = df['value'].shift(-1)
+            df['isReal'] = df['shifted'] - df['value']
+            last_val = df.iloc[-1]['value']
+            df.iloc[-1, df.columns.get_loc('isReal')] = last_val
+            df = df[df['isReal'] >= 0]
+            df = df[['value']].resample('D').interpolate()
+            df = df[['value']].resample('M').mean()
+            df['start'] = df.index.to_period('M').to_timestamp()
+            df.set_index('start', inplace=True)
+            df['value'] = df['value'].round(3)
 
-        last_val = df.iloc[-1]['value']
-        df.iloc[-1, df.columns.get_loc('isReal')] = last_val
-        df = df[df['isReal'] >= 0]
-        df = df[['value']].resample('D').interpolate()
-        df = df[['value']].resample('M').mean()
-        df['start'] = df.index.to_period('M').to_timestamp()
-        df.set_index('start', inplace=True)
-        df['value'] = df['value'].round(3)
-
-    logger.info(f"Data had been cleaned successfully.")
-    return [HourlyData(value=row['value'], timestamp=index.replace(hour=12).isoformat()).__dict__ for index, row in
-            df.iterrows()]
+        logger.info(f"Data had been cleaned successfully.")
+        return [HourlyData(value=row['value'], timestamp=index.replace(hour=12).isoformat()).__dict__ for index, row in
+                df.iterrows()]
+    except Exception as ex:
+        logger.error(ex)
 
 
-def insert_hourly_data():
+def insert_hourly_data(id_project):
     limit = 100
     skip = 0
     ttl = int(os.getenv('TTL'))
     t0 = time.time()
     while time.time() - t0 < ttl:
         with driver.session() as session:
-            sensor_measure = get_sensors_measurements(session, id_project=args.id_project, namespace=args.namespace,
+            sensor_measure = get_sensors_measurements(session, id_project=id_project, namespace=args.namespace,
                                                       limit=limit,
                                                       skip=limit * skip).data()
             logger.info(f"Gather Sensors and Measurements [{skip}].")
@@ -135,7 +141,7 @@ def insert_hourly_data():
             logger.info(f"Sensor: {sensor_id} || Type: {sensor_type} || Measure: {measure_id}")
             print(f"Sensor: {sensor_id} || Type: {sensor_type} || Measure: {measure_id}")
 
-            req_hour_data = RequestHourlyData(instance=1, id_project=args.id_project, cups=cups,
+            req_hour_data = RequestHourlyData(instance=1, id_project=id_project, cups=cups,
                                               sensor=str(SensorEnum[sensor_type].value),
                                               hourly_data=[])
 
@@ -143,9 +149,9 @@ def insert_hourly_data():
             req_hour_data.hourly_data = get_data_hbase(_from, measure_id, sensor_type)
             logger.info(
                 f"Energy Consumption from {cups} has been gathered successfully ({len(req_hour_data.hourly_data)}).")
-
-            res = InergySource.update_hourly_data(token=token['access_token'], data=[req_hour_data.__dict__])
-            logger.info(res)
+            if not DEBUG:
+                res = InergySource.update_hourly_data(token=token['access_token'], data=[req_hour_data.__dict__])
+                logger.info(res)
             print(req_hour_data.__dict__)
 
         if len(sensor_measure) == limit:
@@ -176,6 +182,7 @@ if __name__ == '__main__':
     # https://apiv20.inergy.online/docs/api.html#218--insertar-elementos
     # Load env. variables
     load_dotenv()
+    DEBUG = bool(strtobool(os.getenv("DEBUG", "False")))
 
     # Set Logger
     logging.basicConfig(format='%(asctime)s,%(msecs)d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
@@ -186,7 +193,7 @@ if __name__ == '__main__':
 
     # Set Arguments in CLI
     ap = argparse.ArgumentParser(description='Insert data to Inergy')
-    ap.add_argument("--id_project", "-id_project", type=int, help="Project Id", required=True)
+    ap.add_argument("--id_project", "-id_project", type=str, help="Project Id", required=True)
     ap.add_argument("--type", "-t", type=str, help="The data that you want to insert",
                     choices=['element', 'supplies', 'hourly_data', 'all'],
                     required=True)
@@ -199,8 +206,9 @@ if __name__ == '__main__':
     args = ap.parse_args()
 
     # Get credentials
-    token = InergySource.authenticate()
-    logger.info("The authentication has been succeeded.")
+    if not DEBUG:
+        token = InergySource.authenticate()
+        logger.info("The authentication has been succeeded.")
 
     # Neo4J
     driver = GraphDatabase.driver(os.getenv('NEO4J_URI'),
@@ -208,13 +216,18 @@ if __name__ == '__main__':
 
     logger.info("The connection with database has been succeeded.")
 
+    projects = args.id_project.split(',')
+
     if args.type == 'element' or args.type == 'all':
-        insert_elements()
-        logger.info("The process of integrate elements has been completed.")
+        for i in projects:
+            insert_elements(int(i))
+            logger.info(f"The process of integrate elements from {i} has been completed.")
 
     if args.type == 'supplies' or args.type == 'all':
-        insert_supplies()
-        logger.info("The process of integrate supplies has been completed.")
+        for i in projects:
+            insert_supplies(int(i))
+            logger.info(f"The process of integrate supplies from {i} has been completed.")
 
     if args.type == 'hourly_data' or args.type == 'all':
-        insert_hourly_data()
+        for i in projects:
+            insert_hourly_data(int(i))

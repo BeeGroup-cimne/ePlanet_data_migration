@@ -3,4 +3,5 @@ SENSOR_TYPE_TAXONOMY = {"EnergyConsumptionGas": "GAS", "EnergyConsumptionWaterHe
 
 INVERTED_SENSOR_TYPE_TAXONOMY = {v: k for k, v in SENSOR_TYPE_TAXONOMY.items()}
 
-PROJECTS = {852: 'Agios Nikolaos', 853: 'Rethymno', 856: 'Karolinka', 857: 'Racková'}
+PROJECTS = {852: 'Chania', 853: 'Rethymno', 856: 'Karolinka', 857: 'Dolní Bečva'}
+_PROJECTS = {852: 'Agios Nikolaos', 853: 'Rethymno', 856: 'Karolinka', 857: 'Racková'}

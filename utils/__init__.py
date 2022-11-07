@@ -6,7 +6,7 @@ from Inergy.Entities import Element, Location, SupplyEnum, Supply
 from constants import SENSOR_TYPE_TAXONOMY
 
 
-def create_supply(args, sensor):
+def create_supply(id_project, sensor):
     _from, sensor_id, sensor_type = get_sensor_id(sensor['s']['uri'])
 
     if not sensor_type:
@@ -16,7 +16,7 @@ def create_supply(args, sensor):
     cups = f"{sensor_id}-{sensor_type}" if _from == 'CZ' else sensor_id
     cups = cups[:20]
 
-    return Supply(instance=1, id_project=args.id_project, code=code, cups=cups,
+    return Supply(instance=1, id_project=id_project, code=code, cups=cups,
                   id_source=SupplyEnum[sensor_type].value, element_code=sensor_id,
                   use='Equipment',
                   id_zone=1,
@@ -44,7 +44,7 @@ def create_location(location, city):
     return Location(address=address, latitude=latitude, longitude=longitude)
 
 
-def create_element(args, i):
+def create_element(id_project, i):
     building = i['n']
     location = i['l']
     city = i['c']
@@ -53,7 +53,7 @@ def create_element(args, i):
 
     if all(item in list(building.keys()) for item in
            ['bigg__buildingIDFromOrganization', 'bigg__buildingName']):
-        el = Element(id_project=args.id_project,
+        el = Element(id_project=id_project,
                      instance=1,
                      code=str(building.get('bigg__buildingIDFromOrganization')),
                      use='Equipment', typology=9, name=building.get('bigg__buildingName'),
